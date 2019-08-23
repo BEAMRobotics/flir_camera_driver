@@ -14,6 +14,23 @@ Due to differences in parameter naming the configuration is separated from the m
 
 When contributing make sure the travis job suceeds and please use [roscpp_code_format](https://github.com/davetcoleman/roscpp_code_format) to format your code.
 
+## Camera synchronisation
+
+Camera timestamps can be synchronised with timestamps sent from a microcontroller (Teensy 3.6) which triggers the camera via a hardware trigger line for more accurate stamps. This is achieved by keeping a buffer of images read from the camera firmware (over USB) and keeping a buffer of timestamps sent over rosserial from the microcontroller. The images are then restamped by aligning the buffers using sequence numbers. If for some reason the microcontroller sends a trigger timestamp and no image is received the node will perceive this (by checking the offset between timestamps) and will adjust the alignment accordingly.
+
+### Parameters
+- enable_synchronisation: bool
+- imu_time_offset_s: time in seconds calibrated for offset to the imu
+- percentage_keep: by default the Teensy outputs a 20Hz trigger, this value is the percent of the frames you wish to keep (i.e. 0.10 = 2 FPS)
+
+### Topics
+- toggle: boolean message to tell teensy to start publishing timestamps for triggers
+- ($camera_name)/cam_time: the topic the teensy publishes to (currentl the onyl camera names supported are F1, F2, F3, F4
+
+### Notes
+
+The nodelet publishes two types of image messages: wfov_camera_msgs::WFOVImage and sensor_msgs::Image, the nodelete is setup to synchronise with the wfov message since after the first camera connection it will continue publishing until the nodelet stops therefore requiring less communication between the nodelet and teensy. the sensor_msgs::Image topic is published based of the wfov image and can be abstracted away.
+
 ## Licence
 ROS-compatible Camera drivers originally provided by NREC, part of Carnegie Mellon University's robotics institute.
 These drives are included along with modifications of the standard ros image messages that enable HDR and physics based vision.
