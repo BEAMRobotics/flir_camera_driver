@@ -589,12 +589,9 @@ private:
 
             // wfov_image->temperature = spinnaker_.getCameraTemperature();
 
-            // ros::Time time = ros::Time::now();
-            // Spinnaker::ChunkData chunkData = wfov_image->image.GetChunkData();
-            // time = chunkData.GetTimestamp() * 1e-9;
-            // std::cout << "chunkData.GetTimestamp: " << chunkData.GetTimestamp() << std::endl;
-            // wfov_image->header.stamp = time;
-            // wfov_image->image.header.stamp = time;
+
+            // wfov_image->image.header.stamp is set in SpinnakerCamera.cpp from Chunk Data
+            wfov_image->header.stamp = wfov_image->image.header.stamp;
             std::cout << "wfov_image->header.stamp = " << wfov_image->header.stamp << std::endl;
             std::cout << "wfov_image->image.header.stamp = " << wfov_image->image.header.stamp << std::endl;
 
