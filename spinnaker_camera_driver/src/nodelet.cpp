@@ -375,6 +375,10 @@ private:
     diag_man->addDiagnostic("PowerSupplyCurrent", true, std::make_pair(0.4f, 0.6f), 0.3f, 1.0f);
     diag_man->addDiagnostic<int>("DeviceUptime");
     diag_man->addDiagnostic<int>("U3VMessageChannelID");
+
+    config_.enable_trigger = "On";
+    config_.trigger_activation_mode = "RisingEdge";
+    config_.trigger_source = "Line0";
   }
 
   /**
@@ -579,16 +583,20 @@ private:
 
             // Set other values
             wfov_image->header.frame_id = frame_id_;
-
             wfov_image->gain = gain_;
             wfov_image->white_balance_blue = wb_blue_;
             wfov_image->white_balance_red = wb_red_;
 
             // wfov_image->temperature = spinnaker_.getCameraTemperature();
 
-            ros::Time time = ros::Time::now();
-            wfov_image->header.stamp = time;
-            wfov_image->image.header.stamp = time;
+            // ros::Time time = ros::Time::now();
+            // Spinnaker::ChunkData chunkData = wfov_image->image.GetChunkData();
+            // time = chunkData.GetTimestamp() * 1e-9;
+            // std::cout << "chunkData.GetTimestamp: " << chunkData.GetTimestamp() << std::endl;
+            // wfov_image->header.stamp = time;
+            // wfov_image->image.header.stamp = time;
+            std::cout << "wfov_image->header.stamp = " << wfov_image->header.stamp << std::endl;
+            std::cout << "wfov_image->image.header.stamp = " << wfov_image->image.header.stamp << std::endl;
 
             // Set the CameraInfo message
             ci_.reset(new sensor_msgs::CameraInfo(cinfo_->getCameraInfo()));
