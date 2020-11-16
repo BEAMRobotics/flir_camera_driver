@@ -119,7 +119,6 @@ private:
   * is currently using.
   * \param level driver_base reconfiguration level.  See driver_base/SensorLevels.h for more information.
   */
-
   void paramCallback(const spinnaker_camera_driver::SpinnakerConfig& config, uint32_t level)
   {
     config_ = config;
@@ -245,6 +244,17 @@ private:
   }
 
   /*!
+  * \brief IMU trigger callback to synchronize camera and imu
+  * 
+  * This function will store a buffer of timestamps from the imu pub stream. These will be compared to image timestamps
+  * to determine the offset and correct the image timestamps.
+  */
+  void triggerCb(const std_msgs::HeaderConstPtr& msg) {
+    // ros::Time timestamp_tmp = msg->stamp;
+    trigger_deque_.push_front(msg->stamp);   // 
+  }
+
+  /*!
   * \brief Serves as a psuedo constructor for nodelets.
   *
   * This function needs to do the MINIMUM amount of work to get the nodelet running.  Nodelets should not call blocking
@@ -322,6 +332,10 @@ private:
     // queue size of ros publisher
     int queue_size;
     pnh.param<int>("queue_size", queue_size, 5);
+
+    // subscribe to imu trigger events
+    trigger_ = nh.subscribe("/imu/syncout", 50, &SpinnakerCameraNodelet::triggerCb, this);
+
 
     // Start the camera info manager and attempt to load any configurations
     std::stringstream cinfo_name;
@@ -560,6 +574,8 @@ private:
             NODELET_DEBUG("Started camera.");
             NODELET_DEBUG("Attention: if nothing subscribes to the camera topic, the camera_info is not published "
                           "on the correspondent topic.");
+            imu_synced = false;
+            ROS_INFO("imu_synced = %s", (imu_synced ? "true" : "false"));
             state = STARTED;
           }
           catch (std::runtime_error& e)
@@ -588,12 +604,44 @@ private:
             wfov_image->white_balance_red = wb_red_;
 
             // wfov_image->temperature = spinnaker_.getCameraTemperature();
+            
+            /* First we need a subscriber to imu/syncout and imu/syncout_pctime
+             * then we need to compare the ros::Time timestamps (syncout_pctime) with the ros::Time of
+             * the first image that's received. The closest match is considered to be the trigger and
+             * the corresponding image (camera has minimum 29ms latency). The difference between the imu/syncout timestamp
+             * of the first image and the camera timestamp is used to correct subsequent image timestamps.
+             */
 
+            // create subscriber for imu messages and find most closely aligned IMU trigger event to determine offset
+
+            if(imu_synced == false) {
+              // find closest match using ROS/PC time for each datastream
+              /* Assuming that the image transport takes longer, we can start with the most recent
+               * /imu/syncout_pctime value and check backwrds from there for a close match */
+              ROS_INFO("Calculating camera clock offset");
+              ros::Time image_pc_time = ros::Time::now();
+              ros::Time image_timestamp_raw = wfov_image->image.header.stamp;
+              std::deque<ros::Time>::iterator it = trigger_deque_.begin();
+              ROS_INFO("IMU timestamp at begin(): %f", it->toSec());
+              ROS_INFO("PC time when image was received: %f", image_pc_time.toSec());
+              ROS_INFO("Image header timestamp: %f", image_timestamp_raw.toSec());
+              while((it < trigger_deque_.end()) && ((image_pc_time - *it) >= ros::Duration(0))) {
+                // ROS_INFO(*it);
+                // std::cout << "trigger_deque[" << it << "]: " << *it << std::endl;
+                ROS_INFO("header.seq = %d\t|\timage.header.seq = %d", wfov_image->header.seq, wfov_image->image.header.seq);
+                ROS_INFO("ross::Time::now() = %f", image_pc_time);
+                std::cout << "trigger_deque: " << *it++ << std::endl;
+              }
+              cam_time_offset = *it - ros::Time(wfov_image->image.header.stamp);
+              ROS_INFO("Camera timestamp offset = %f", cam_time_offset.toSec());
+              imu_synced = true;
+            }
 
             // wfov_image->image.header.stamp is set in SpinnakerCamera.cpp from Chunk Data
+            wfov_image->image.header.stamp += cam_time_offset;
             wfov_image->header.stamp = wfov_image->image.header.stamp;
-            std::cout << "wfov_image->header.stamp = " << wfov_image->header.stamp << std::endl;
-            std::cout << "wfov_image->image.header.stamp = " << wfov_image->image.header.stamp << std::endl;
+            ROS_DEBUG("wfov_image->header.stamp = %d", wfov_image->header.stamp.toSec());
+            ROS_DEBUG("wfov_image->image.header.stamp = %f", wfov_image->image.header.stamp.toSec());
 
             // Set the CameraInfo message
             ci_.reset(new sensor_msgs::CameraInfo(cinfo_->getCameraInfo()));
@@ -680,7 +728,11 @@ private:
   /// a pointer because of
   /// constructor
   /// requirements
-  ros::Subscriber sub_;  ///< Subscriber for gain and white balance changes.
+  ros::Subscriber sub_;     ///< Subscriber for gain and white balance changes.
+  ros::Subscriber trigger_; ///< Subscriber for IMU triggers.
+  std::deque<ros::Time> trigger_deque_;
+  bool imu_synced = false;  /// boolean to determine if we need to go through the timestamp alignment process
+  ros::Duration cam_time_offset;  // Correction value to align image timestamps with imu timestamps
 
   std::mutex connect_mutex_;
 
