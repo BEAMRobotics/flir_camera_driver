@@ -635,6 +635,7 @@ private:
               cam_time_offset = *it - ros::Time(wfov_image->image.header.stamp);
               ROS_INFO("Camera timestamp offset = %f", cam_time_offset.toSec());
               imu_synced = true;
+              ROS_INFO("imu_synced = %s", (imu_synced ? "true" : "false"));
             }
 
             // wfov_image->image.header.stamp is set in SpinnakerCamera.cpp from Chunk Data

@@ -342,18 +342,14 @@ void SpinnakerCamera::grabImage(sensor_msgs::Image* image, const std::string& fr
       }
       else
       {
-        /* Grab timestamp from chunk data. This is embedded within the image data and is from the clock's clock
-         * which has no reference */
+        /* Grab timestamp from chunk data. This is embedded within the image data and is from the camera's clock
+         * which starts with an arbitrary value upon receiving power*/
         Spinnaker::ChunkData chunkData = image_ptr->GetChunkData();    // chunk data is embedded into the image
         uint64_t chunkTime = chunkData.GetTimestamp();
         image->header.stamp.sec = chunkTime * 1e-9;    // convert timestamp from ns to s
         image->header.stamp.nsec = chunkTime % (uint64_t)1e9;
-        // std::cout << "SpinnakerCamer.cpp:chunk data timestamp: " << chunkTime << std::endl;
-        // std::cout << "SpinnakerCamer.cpp: image->header.stamp.sec: " << image->header.stamp.sec << std::endl;
-        // std::cout << "SpinnakerCamer.cpp: image->header.stamp.nsec: " << image->header.stamp.nsec << std::endl;
-
-
-        // Set Image Time Stamp
+        
+        // Set Image Time Stamp 
         // image->header.stamp.sec = image_ptr->GetTimeStamp() * 1e-9;
         // image->header.stamp.nsec = image_ptr->GetTimeStamp();
 
